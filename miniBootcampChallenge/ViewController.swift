@@ -16,35 +16,66 @@ class ViewController: UICollectionViewController {
     }
     
     private lazy var urls: [URL] = URLProvider.urls
+    var images:[UIImage] = [UIImage]()
+    let refreshControl = UIRefreshControl()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         title = Constants.title
+        refreshControl.addTarget(self, action: #selector(self.refresh), for: .valueChanged)
+        self.collectionView.addSubview(refreshControl)
+        self.refresh()
     }
-
-
+    @objc func refresh(){
+        refreshControl.beginRefreshing()
+        images = [UIImage]()
+        self.collectionView.reloadData()
+        downloadImages { complete in
+            self.refreshControl.endRefreshing()
+            self.collectionView.reloadData()
+        }
+    }
 }
 
 
 // TODO: 1.- Implement a function that allows the app downloading the images without freezing the UI or causing it to work unexpected way
-
 // TODO: 2.- Implement a function that allows to fill the collection view only when all photos have been downloaded, adding an animation for waiting the completion of the task.
+
+extension ViewController{
+    //Solution for challenge 1
+    func downloadSingleImage(url:URL, onCell cell:ImageCell){
+        DispatchQueue.global().async {
+            let data = try? Data(contentsOf: url)
+            DispatchQueue.main.async {
+                cell.display(UIImage(data: data!)!)
+            }
+        }
+    }
+    //Solution for challenge 2
+    func downloadImages(completionHandler:@escaping(_ complete:Bool) ->Void) {
+        
+        DispatchQueue.global().async {
+            for url in self.urls {
+                let data = try? Data(contentsOf: url)
+                self.images.append(UIImage(data: data!)!)
+            }
+            DispatchQueue.main.async {
+                completionHandler(true)
+            }
+        }
+    }
+}
 
 
 // MARK: - UICollectionView DataSource, Delegate
 extension ViewController {
     override func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        urls.count
+        images.count
     }
     
     override func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: Constants.cellID, for: indexPath) as? ImageCell else { return UICollectionViewCell() }
-        
-        let url = urls[indexPath.row]
-        let data = try? Data(contentsOf: url)
-        let image = UIImage(data: data!)
-        cell.display(image)
-        
+        cell.display(self.images[indexPath.row])
         return cell
     }
 }
